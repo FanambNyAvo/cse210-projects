@@ -1,107 +1,205 @@
-import pickle
+using System;
+using System.Collections.Generic;
+using System.IO;
 
-class Goal:
-    def __init__(self, name):
-        self.name = name
-        self.completed = False
-    
-    def mark_completed(self):
-        self.completed = True
-    
-    def display_status(self):
-        if self.completed:
-            return "[X]"
-        else:
-            return "[ ]"
+public abstract class Goal
+{
+    protected string name;
+    protected bool completed;
 
-class SimpleGoal(Goal):
-    def __init__(self, name, points):
-        super().__init__(name)
-        self.points = points
-    
-    def record_event(self):
-        self.mark_completed()
-        return self.points
+    public Goal(string name)
+    {
+        this.name = name;
+        completed = false;
+    }
 
-class EternalGoal(Goal):
-    def __init__(self, name, points):
-        super().__init__(name)
-        self.points = points
-    
-    def record_event(self):
-        return self.points
+    public abstract int RecordEvent(); 
+    public string DisplayStatus()
+    {
+        return completed ? "[X]" : "[ ]";
+    }
 
-class ChecklistGoal(Goal):
-    def __init__(self, name, points_per_completion, target_count, bonus_points):
-        super().__init__(name)
-        self.points_per_completion = points_per_completion
-        self.target_count = target_count
-        self.completed_count = 0
-        self.bonus_points = bonus_points
-    
-    def record_event(self):
-        self.completed_count += 1
-        if self.completed_count == self.target_count:
-            self.mark_completed()
-            return self.points_per_completion * self.target_count + self.bonus_points
-        else:
-            return self.points_per_completion
-    
-    def display_status(self):
-        if self.completed:
-            return f"[X] Completed {self.completed_count}/{self.target_count} times"
-        else:
-            return f"[ ] Completed {self.completed_count}/{self.target_count} times"
+    public string Name => name;
+}
 
-class EternalQuest:
-    def __init__(self):
-        self.goals = []
-        self.score = 0
-    
-    def add_goal(self, goal):
-        self.goals.append(goal)
-    
-    def record_event(self, goal_index):
-        points_earned = self.goals[goal_index].record_event()
-        self.score += points_earned
-        return points_earned
-    
-    def display_goals(self):
-        for i, goal in enumerate(self.goals):
-            print(f"{i+1}. {goal.name} - {goal.display_status()}")
-    
-    def save_progress(self, filename):
-        with open(filename, 'wb') as file:
-            pickle.dump(self, file)
-    
-    @staticmethod
-    def load_progress(filename):
-        with open(filename, 'rb') as file:
-            return pickle.load(file)
+public class SimpleGoal : Goal
+{
+    private int points;
 
-if __name__ == "__main__":
-    eternal_quest = EternalQuest()
+    public SimpleGoal(string name, int points) : base(name)
+    {
+        this.points = points;
+    }
 
-    marathon_goal = SimpleGoal("Run a Marathon", 1000)
-    scriptures_goal = EternalGoal("Read Scriptures", 100)
-    temple_goal = ChecklistGoal("Attend Temple", 50, 10, 500)
+    public override int RecordEvent()
+    {
+        completed = true;
+        return points;
+    }
+}
 
-    eternal_quest.add_goal(marathon_goal)
-    eternal_quest.add_goal(scriptures_goal)
-    eternal_quest.add_goal(temple_goal)
+public class EternalGoal : Goal
+{
+    private int points;
 
+    public EternalGoal(string name, int points) : base(name)
+    {
+        this.points = points;
+    }
 
-    eternal_quest.record_event(0) 
-    eternal_quest.record_event(1)
-    eternal_quest.record_event(2) 
-    eternal_quest.record_event(2) 
+    public override int RecordEvent()
+    {
+        return points;
+    }
+}
 
-    eternal_quest.display_goals()
-    print("Score:", eternal_quest.score)
+public class ChecklistGoal : Goal
+{
+    private int pointsPerCompletion;
+    private int targetCount;
+    private int bonusPoints;
+    private int completedCount;
 
-    eternal_quest.save_progress("progress.pkl")
+    public ChecklistGoal(string name, int pointsPerCompletion, int targetCount, int bonusPoints) : base(name)
+    {
+        this.pointsPerCompletion = pointsPerCompletion;
+        this.targetCount = targetCount;
+        this.bonusPoints = bonusPoints;
+        completedCount = 0;
+    }
 
-    loaded_eternal_quest = EternalQuest.load_progress("progress.pkl")
-    print("\nLoaded goals and score:")
-    loaded_eternal_quest.display_goals()
-    print("Loaded Score:", loaded_eternal_quest.score)
+    public override int RecordEvent()
+    {
+        completedCount++;
+        if (completedCount == targetCount)
+        {
+            completed = true;
+            return pointsPerCompletion * targetCount + bonusPoints;
+        }
+        else
+        {
+            return pointsPerCompletion;
+        }
+    }
+
+    public string ChecklistStatus()
+    {
+        return $"Completed {completedCount}/{targetCount} times";
+    }
+}
+
+public class EternalQuest
+{
+    private List<Goal> goals;
+    private int score;
+
+    public EternalQuest()
+    {
+        goals = new List<Goal>();
+        score = 0;
+    }
+
+    public void AddGoal(Goal goal)
+    {
+        goals.Add(goal);
+    }
+
+    public int RecordEvent(int index)
+    {
+        int pointsEarned = goals[index].RecordEvent();
+        score += pointsEarned;
+        return pointsEarned;
+    }
+
+    public void DisplayGoals()
+    {
+        for (int i = 0; i < goals.Count; i++)
+        {
+            Console.WriteLine($"{i + 1}. {goals[i].Name} - {goals[i].DisplayStatus()}");
+            if (goals[i] is ChecklistGoal)
+            {
+                Console.WriteLine($"   {((ChecklistGoal)goals[i]).ChecklistStatus()}");
+            }
+        }
+    }
+
+    public int Score => score;
+
+    public void SaveProgress(string filename)
+    {
+        using (StreamWriter writer = new StreamWriter(filename))
+        {
+            foreach (Goal goal in goals)
+            {
+                writer.WriteLine(goal.GetType().Name); 
+                writer.WriteLine(goal.Name);
+                writer.WriteLine(goal.DisplayStatus()); 
+            }
+            writer.WriteLine(score);
+        }
+    }
+
+    public static EternalQuest LoadProgress(string filename)
+    {
+        EternalQuest eternalQuest = new EternalQuest();
+        using (StreamReader reader = new StreamReader(filename))
+        {
+            while (!reader.EndOfStream)
+            {
+                string type = reader.ReadLine(); 
+                string name = reader.ReadLine(); 
+                string status = reader.ReadLine(); 
+                switch (type)
+                {
+                    case "SimpleGoal":
+                        eternalQuest.AddGoal(new SimpleGoal(name, 0));
+                        break;
+                    case "EternalGoal":
+                        eternalQuest.AddGoal(new EternalGoal(name, 0));
+                        break;
+                    case "ChecklistGoal":
+                        eternalQuest.AddGoal(new ChecklistGoal(name, 0, 0, 0));
+                        break;
+                }
+                if (status == "[X]")
+                {
+                    eternalQuest.RecordEvent(eternalQuest.goals.Count - 1); 
+                }
+            }
+            eternalQuest.score = int.Parse(reader.ReadLine()); 
+        }
+        return eternalQuest;
+    }
+}
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        EternalQuest eternalQuest = new EternalQuest();
+
+        Goal marathonGoal = new SimpleGoal("Run a Marathon", 1000);
+        Goal scripturesGoal = new EternalGoal("Read Scriptures", 100);
+        Goal templeGoal = new ChecklistGoal("Attend Temple", 50, 10, 500);
+
+        eternalQuest.AddGoal(marathonGoal);
+        eternalQuest.AddGoal(scripturesGoal);
+        eternalQuest.AddGoal(templeGoal);
+
+        eternalQuest.RecordEvent(0);
+        eternalQuest.RecordEvent(1); 
+        eternalQuest.RecordEvent(2); 
+        eternalQuest.RecordEvent(2); 
+
+        eternalQuest.DisplayGoals();
+        Console.WriteLine("Score: " + eternalQuest.Score);
+s
+        eternalQuest.SaveProgress("progress.txt");
+
+        // Load progress
+        EternalQuest loadedEternalQuest = EternalQuest.LoadProgress("progress.txt");
+        Console.WriteLine("\nLoaded goals and score:");
+        loadedEternalQuest.DisplayGoals();
+        Console.WriteLine("Loaded Score: " + loadedEternalQuest.Score);
+    }
+}
